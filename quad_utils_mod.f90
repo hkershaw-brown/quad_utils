@@ -19,44 +19,7 @@ module quad_utils_mod
     y_corners = y_corners_in
 
     if (do_rotate) then
-        ! Rotate the quadrilateral
-        do i = 2, 4
-            x_corners(i) = x_corners(i) - x_corners(1)
-            y_corners(i) = y_corners(i) - y_corners(1)
-        end do
-        lon = lon - x_corners(1)
-        lat = lat - y_corners(1)
-        x_corners(1) = 0.d0
-        y_corners(1) = 0.d0
-
-        b(1) = x_corners(2)
-        b(2) = y_corners(2)
-
-        ! Avoid degenerate cases where the grid is rotated exactly +/- 90 degrees
-        if (abs(x_corners(2)) > 0.d001) then
-            c(1) = x_corners(2)
-            c(2) = 0.d0
-        else
-            c(1) = 0.d0
-            c(2) = y_corners(2)
-        end if
-
-        angle = angle2(b, c)
-
-        if (abs(angle) > 0.d001) then
-            do i = 2, 4
-                b(1) = x_corners(i)
-                b(2) = y_corners(i)
-                b = rotate2(b, angle)
-                x_corners(i) = b(1)
-                y_corners(i) = b(2)
-            end do
-            b(1) = lon
-            b(2) = lat
-            b = rotate2(b, angle)
-            lon = b(1)
-            lat = b(2)
-        end if
+        call rotate_quad(x_corners, y_corners, lon, lat) ! This is a rotation and translation
     end if
 
     ! Fit a surface and interpolate; solve for 3x3 matrix
@@ -114,8 +77,8 @@ module quad_utils_mod
   real(8) :: r(2,2)
   
   r(1,1) = cos(theta)
-  r(1,2) = sin(theta)
-  r(2,1) = sin(-theta)
+  r(1,2) = -sin(theta)
+  r(2,1) = sin(theta)
   r(2,2) = cos(theta)
   
   rotate2(1) = r(1,1)*a(1) + r(1,2)*a(2)
@@ -128,7 +91,7 @@ module quad_utils_mod
     real(8), intent(in) :: a(2), b(2)
     real(8)             :: angle2
   
-  angle2 = acos(dot2(a,b) / (mag2(a) * mag2(b)))
+  angle2 = abs(acos(dot2(a,b) / (mag2(a) * mag2(b))))
   
   end function angle2
 
@@ -151,5 +114,54 @@ module quad_utils_mod
    
    end function dot2
    
+   subroutine rotate_quad(x_corners, y_corners, lon, lat)
+    implicit none
+    real(8), intent(inout) :: x_corners(4), y_corners(4), lon, lat
+    real(8) :: b(2), c(2), angle
+    integer :: i
+
+    ! Translate the quadrilateral so the first corner is at the origin
+    do i = 2, 4
+        x_corners(i) = x_corners(i) - x_corners(1)
+        y_corners(i) = y_corners(i) - y_corners(1)
+    end do
+    lon = lon - x_corners(1)
+    lat = lat - y_corners(1)
+    x_corners(1) = 0.d0
+    y_corners(1) = 0.d0
+
+    ! Define the edge vector and reference vector
+    b(1) = x_corners(2)
+    b(2) = y_corners(2)
+
+    if (abs(x_corners(2)) > 0.d001) then
+        c(1) = x_corners(2)
+        c(2) = 0.d0
+    else
+        c(1) = 0.d0
+        c(2) = y_corners(2)
+    end if
+
+    ! Calculate the rotation angle
+    angle = angle2(b, c)
+
+    ! Rotate the quadrilateral and the interpolation point
+    if (abs(angle) > 0.d001) then
+        do i = 2, 4
+            b(1) = x_corners(i)
+            b(2) = y_corners(i)
+            b = rotate2(b, angle)
+            x_corners(i) = b(1)
+            y_corners(i) = b(2)
+        end do
+        b(1) = lon
+        b(2) = lat
+        b = rotate2(b, angle)
+        lon = b(1)
+        lat = b(2)
+    end if
+  end subroutine rotate_quad
+
+
 
 end module quad_utils_mod
