@@ -91,8 +91,9 @@ module quad_utils_mod
     real(8), intent(in) :: a(2), b(2)
     real(8)             :: angle2
   
-  angle2 = abs(acos(dot2(a,b) / (mag2(a) * mag2(b))))
+    angle2 = acos(dot2(a,b) / (mag2(a) * mag2(b)))
   
+
   end function angle2
 
   ! compute the magnitude of a 2-vector
@@ -162,6 +163,35 @@ module quad_utils_mod
     end if
   end subroutine rotate_quad
 
+  subroutine rotate_quad_no_translate(x_corners, y_corners, lon, lat)
+    implicit none
+    real(8), intent(inout) :: x_corners(4), y_corners(4), lon, lat
+    real(8) :: b(2), angle
+    integer :: i
+
+    ! Define the edge vector and reference vector
+    b(1) = x_corners(2) - x_corners(1)
+    b(2) = y_corners(2) - y_corners(1)
+
+    ! Reference vector aligned with the x-axis
+    angle = angle2(b, [1.0d0, 0.0d0])  ! Angle between the edge and the x-axis
+
+    ! Rotate the quadrilateral around the first corner
+    do i = 2, 4
+        b(1) = x_corners(i) - x_corners(1)
+        b(2) = y_corners(i) - y_corners(1)
+        b = rotate2(b, angle)
+        x_corners(i) = x_corners(1) + b(1)
+        y_corners(i) = y_corners(1) + b(2)
+    end do
+
+    ! Rotate the interpolation point around the first corner
+    b(1) = lon - x_corners(1)
+    b(2) = lat - y_corners(1)
+    b = rotate2(b, angle)
+    lon = x_corners(1) + b(1)
+    lat = y_corners(1) + b(2)
+end subroutine rotate_quad_no_translate
 
 
 end module quad_utils_mod
